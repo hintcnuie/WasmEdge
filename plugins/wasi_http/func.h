@@ -9,17 +9,19 @@
 namespace WasmEdge {
 namespace Host {
 
+using Str = std::tuple<uint64_t, uint64_t>;
+
 class WasiHttpPrint : public WasiHttp<WasiHttpPrint> {
 public:
   WasiHttpPrint(WasiHttpEnvironment &HostEnv) : WasiHttp(HostEnv) {}
-  Expect<void> body(const Runtime::CallingFrame &Frame, uint32_t StrPtr,
-                    uint32_t StrLen);
+  Expect<void> body(const Runtime::CallingFrame &Frame, uint64_t StrPtr,
+                    uint64_t StrLen);
 };
 
 class WasiHttpGet : public WasiHttp<WasiHttpGet> {
 public:
   WasiHttpGet(WasiHttpEnvironment &HostEnv) : WasiHttp(HostEnv) {}
-  Expect<uint32_t> body(const Runtime::CallingFrame &Frame, uint64_t URIIndex);
+  Expect<Str> body(const Runtime::CallingFrame &Frame, uint64_t URIIndex);
 };
 
 } // namespace Host

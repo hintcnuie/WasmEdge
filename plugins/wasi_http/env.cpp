@@ -7,7 +7,10 @@
 namespace WasmEdge {
 namespace Host {
 
-WasiHttpEnvironment::WasiHttpEnvironment() noexcept {}
+WasiHttpEnvironment::WasiHttpEnvironment() noexcept {
+
+  URIs = {"https://www.google.com/", "https://duckduckgo.com/"};
+}
 
 namespace {
 

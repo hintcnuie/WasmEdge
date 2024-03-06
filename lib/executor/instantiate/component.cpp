@@ -27,7 +27,6 @@ Executor::instantiate(Runtime::StoreManager &StoreMgr,
   }
 
   for (auto &Sec : Comp.getSections()) {
-    spdlog::info("section processing...");
     if (std::holds_alternative<AST::CustomSection>(Sec)) {
     } else if (std::holds_alternative<AST::CoreModuleSection>(Sec)) {
       CompInst->addModule(std::get<AST::CoreModuleSection>(Sec).getContent());
@@ -81,12 +80,10 @@ Executor::instantiate(Runtime::StoreManager &StoreMgr,
         return Unexpect(Res);
       }
     }
-    spdlog::info("section complete");
   }
 
   StoreMgr.registerComponent(CompInst.get());
 
-  spdlog::info("complete component instantiation");
   return CompInst;
 }
 
@@ -118,15 +115,12 @@ Executor::instantiate(Runtime::StoreManager &StoreMgr,
       // instance.
       auto Sorts =
           std::get<AST::Component::CoreInlineExports>(InstExpr).getExports();
-      spdlog::info("[core inline exports] size {}", Sorts.size());
       for (auto S : Sorts) {
-        spdlog::info("[core inline exports] exports name: {}", S.getName());
         auto SortIdx = S.getSortIdx();
         switch (SortIdx.getSort()) {
         case CoreSort::Func: {
           auto Idx = SortIdx.getSortIdx();
           CompInst.getFunctionInstance(Idx);
-          spdlog::info("nice");
           break;
         }
         default:
@@ -245,9 +239,6 @@ Executor::instantiate(Runtime::StoreManager &,
           const auto *ModInst =
               CompInst.getModuleInstance(Exp.getInstanceIdx());
 
-          spdlog::info("[core func] instance {} export function '{}'",
-                       Exp.getInstanceIdx(), Exp.getName());
-
           auto *FuncInst = ModInst->getFuncExports(
               [&](const std::map<std::string,
                                  Runtime::Instance::FunctionInstance *,
@@ -281,9 +272,6 @@ Executor::instantiate(Runtime::StoreManager &,
           // This means instance exports a function
           auto Exp = std::get<AliasTargetExport>(T);
 
-          spdlog::warn("[alias func] instance {} export function '{}'",
-                       Exp.getInstanceIdx(), Exp.getName());
-
           // FIXME: this should, however, get a component instance, but we
           // haven't change anything at plugin part, and hence we do not have
           // anything create a component plugin.
@@ -291,7 +279,7 @@ Executor::instantiate(Runtime::StoreManager &,
           auto *FuncInst = ModInst->findFuncExports(Exp.getName());
           CompInst.addComponentFunctionInstance(FuncInst);
         } else {
-          spdlog::warn("[alias function] outer export");
+          spdlog::warn("TODO [alias function] outer export");
           auto Out = std::get<AliasTargetOuter>(T);
           auto NestedCompInst =
               CompInst.getComponentInstance(Out.getComponent());
@@ -347,8 +335,6 @@ Executor::instantiate(Runtime::StoreManager &,
       // TODO: apply options
       // L.getOptions();
 
-      spdlog::info("[canonical lower] function index {}", L.getFuncIndex());
-
       auto *FuncInst = CompInst.getComponentFunctionInstance(L.getFuncIndex());
       CompInst.addFunctionInstance(FuncInst);
     } else if (std::holds_alternative<ResourceNew>(C)) {
@@ -393,7 +379,6 @@ Executor::instantiate(Runtime::StoreManager &StoreMgr,
         break;
       case IndexKind::InstanceType:
         auto ModName = ImportStatement.getName();
-        spdlog::info("import an instance named `{}`", ModName);
         const auto *ImportedModInst = StoreMgr.findModule(ModName);
         if (unlikely(ImportedModInst == nullptr)) {
           spdlog::error(ErrCode::Value::UnknownImport);

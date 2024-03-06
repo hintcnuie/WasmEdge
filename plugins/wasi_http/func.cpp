@@ -13,22 +13,22 @@
 namespace WasmEdge {
 namespace Host {
 
-Expect<void> WasiHttpPrint::body(const Runtime::CallingFrame &, uint32_t,
-                                 uint32_t) {
+Expect<void> WasiHttpPrint::body(const Runtime::CallingFrame &, uint64_t Ptr,
+                                 uint64_t Len) {
+  std::string S{(const char *)Ptr, Len};
+  spdlog::info("print: {}", S);
   return {};
 }
 
-Expect<uint32_t> WasiHttpGet::body(const Runtime::CallingFrame &,
-                                   uint64_t URIIndex) {
-  auto URI = Env.loadURI(URIIndex);
+Expect<Str> WasiHttpGet::body(const Runtime::CallingFrame &, uint64_t Idx) {
+  auto URI = Env.loadURI(Idx);
 
-  cpr::Response r = cpr::Get(
+  cpr::Response Res = cpr::Get(
       cpr::Url{URI}, cpr::Authentication{"user", "pass", cpr::AuthMode::BASIC});
-  spdlog::info("status: {}", r.status_code);
-  spdlog::info("content type: {}", r.header["content-type"]);
-  spdlog::info("text: {}", r.text);
+  spdlog::info("status: {}", Res.status_code);
+  Env.Bodies.push_back(Res.text);
 
-  return r.status_code;
+  return Str((uint64_t)Env.Bodies.back().data(), Env.Bodies.back().size());
 }
 
 } // namespace Host
