@@ -69,8 +69,6 @@ public:
   CAPIPluginRegister &operator=(const CAPIPluginRegister &) = delete;
 
   CAPIPluginRegister(const WasmEdge_PluginDescriptor *Desc) noexcept {
-    IncreaseNiftyCounter();
-
     ModuleDescriptions.resize(Desc->ModuleCount);
     for (size_t I = 0; I < ModuleDescriptions.size(); ++I) {
       ModuleDescriptions[I].Name = Desc->ModuleDescriptions[I].Name;
@@ -343,19 +341,25 @@ WASMEDGE_EXPORT bool Plugin::load(const std::filesystem::path &Path) noexcept {
 }
 
 bool Plugin::loadFile(const std::filesystem::path &Path) noexcept {
-  const auto Index = PluginRegistry.size();
-
   auto Lib = std::make_shared<Loader::SharedLibrary>();
   if (auto Res = Lib->load(Path); unlikely(!Res)) {
     return false;
   }
 
+  bool IsCPPInterface = false;
+  bool IsConflictPlugin = false;
   if (auto GetDescriptor =
           Lib->get<Plugin::PluginDescriptor const *()>("GetDescriptor")) {
-    Plugin::registerPlugin(GetDescriptor());
+    IsCPPInterface = true;
+    if (find(GetDescriptor()->Name)) {
+      IsConflictPlugin = true;
+      spdlog::debug("Plugin: {} has already loaded."sv, GetDescriptor()->Name);
+    } else {
+      Plugin::registerPlugin(GetDescriptor());
+    }
   }
 
-  if (PluginRegistry.size() != Index + 1) {
+  if (!IsCPPInterface) {
     // Check C interface
     if (auto GetDescriptor = Lib->get<decltype(WasmEdge_Plugin_GetDescriptor)>(
             "WasmEdge_Plugin_GetDescriptor");
@@ -365,14 +369,21 @@ bool Plugin::loadFile(const std::filesystem::path &Path) noexcept {
                unlikely(!Descriptor)) {
       return false;
     } else {
-      CAPIPluginRegisters.push_back(
-          std::make_unique<CAPIPluginRegister>(Descriptor));
+      if (find(Descriptor->Name)) {
+        IsConflictPlugin = true;
+        spdlog::debug("Plugin: {} has already loaded."sv, Descriptor->Name);
+      } else {
+        CAPIPluginRegisters.push_back(
+            std::make_unique<CAPIPluginRegister>(Descriptor));
+      }
     }
   }
 
-  auto &Plugin = PluginRegistry.back();
-  Plugin.Path = Path;
-  Plugin.Lib = std::move(Lib);
+  if (!IsConflictPlugin) {
+    auto &Plugin = PluginRegistry.back();
+    Plugin.Path = Path;
+    Plugin.Lib = std::move(Lib);
+  }
   return true;
 }
 
@@ -398,11 +409,12 @@ Span<const Plugin> Plugin::plugins() noexcept { return PluginRegistry; }
 
 WASMEDGE_EXPORT void
 Plugin::registerPlugin(const PluginDescriptor *Desc) noexcept {
-  IncreaseNiftyCounter();
-  assuming(NiftyCounter != 0);
   if (Desc->APIVersion != CurrentAPIVersion) {
     return;
   }
+
+  IncreaseNiftyCounter();
+  assuming(NiftyCounter != 0);
 
   const auto Index = PluginRegistry.size();
   PluginRegistry.emplace_back(Desc);
